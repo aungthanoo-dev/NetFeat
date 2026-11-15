@@ -1,0 +1,22 @@
+﻿@baseUrl = http://localhost:5159
+@paymentId = 61bdd220-d503-4302-8f00-5baf6f8c51c5
+
+### Simulate failure on refund request 3 and block subsequent refunds
+# Restart the API in Development before running this batch.
+# RefundsEnabled must be true; RefundDemo:FailOnRequest must be 3.
+# Expected statuses: 200, 200, 503 (exception), 503 (blocked), 503 (blocked).
+# The automatic latch is in memory; it does not rewrite RefundsEnabled in config.
+< {%
+    request.variables.set("attempts", [1, 2, 3, 4, 5]);
+%}
+POST {{baseUrl}}/payments/{{paymentId}}/refund
+X-Demo-Attempt: {{attempts}}
+
+> {%
+    const attempt = request.iteration() + 1;
+    const expected = attempt < 3 ? 200 : 503;
+    client.log(`Refund attempt ${attempt}: HTTP ${response.status}, ${response.body?.status ?? response.body?.title}`);
+    client.test(`Refund attempt ${attempt} returns ${expected}`, () => {
+        client.assert(response.status === expected, `Expected ${expected}, got ${response.status}. Restart the API before this demo.`);
+    });
+%}

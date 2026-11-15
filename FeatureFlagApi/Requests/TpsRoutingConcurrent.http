@@ -1,0 +1,86 @@
+@baseUrl = http://localhost:5159
+
+### Concurrent TPS burst via Node.js (18+ on PATH)
+# The first request warms up the endpoint. Its response handler launches Node.js.
+# Node waits 1.1 seconds, then sends 100 requests concurrently using Promise.all.
+# Requires Rider HTTP Client shell-command support (execSync).
+# Keep other traffic to this endpoint idle for a clean measurement.
+# With limit 20 and a burst under one second, expect 20 new / 80 legacy.
+POST {{baseUrl}}/payments/tps-routing-preview
+X-Demo-Customer-Id: warmup-customer
+
+> {%
+    client.assert(response.status === 200, "Start the API before running the burst.");
+
+    const baseUrl = client.variables.file.get("baseUrl");
+    client.assert(typeof baseUrl === "string" && /^https?:\/\//.test(baseUrl),
+        "The baseUrl file variable must contain an HTTP(S) URL.");
+    const endpoint = `${baseUrl.replace(/\/$/, "")}/payments/tps-routing-preview`;
+    const script = `
+        (async () => {
+            await new Promise(resolve => setTimeout(resolve, 1100));
+            const started = performance.now();
+            const results = await Promise.all(Array.from({ length: 100 }, async (_, index) => {
+                try {
+                    const response = await fetch(${JSON.stringify(endpoint)}, {
+                        method: "POST",
+                        headers: { "X-Demo-Customer-Id": "customer-" + String(index + 1).padStart(3, "0") },
+                        signal: AbortSignal.timeout(10000)
+                    });
+                    const body = await response.json();
+                    return response.ok && (body.provider === "new" || body.provider === "legacy")
+                        ? body.provider : "failed";
+                } catch {
+                    return "failed";
+                }
+            }));
+            console.log(JSON.stringify({
+                elapsedMs: performance.now() - started,
+                newProvider: results.filter(provider => provider === "new").length,
+                legacy: results.filter(provider => provider === "legacy").length,
+                failed: results.filter(provider => provider === "failed").length
+            }));
+        })().catch(error => { console.error(error); process.exitCode = 1; });
+    `;
+
+    // Keep multiline JavaScript out of command-line argument quoting on Windows.
+    // Only the Base64 alphabet is inserted into the shell command.
+    const encodedScript = btoa(script);
+    const command = `node -e "eval(Buffer.from('${encodedScript}','base64').toString('utf8'))"`;
+    const output = execSync(command, { timeout: 20000 });
+    const outputText = String(output ?? "").trim();
+    client.assert(outputText.length > 0,
+        "Node returned no output. Check that node --version works in Rider's terminal and that shell commands are enabled.");
+    let result;
+    try {
+        result = JSON.parse(outputText);
+    } catch (error) {
+        throw new Error(`Expected JSON from Node, received: ${outputText.slice(0, 1000)}`);
+    }
+    const limit = response.body.newProviderLimitPerSecond;
+
+    const elapsedSeconds = result.elapsedMs / 1000;
+    const successfulRequests = result.newProvider + result.legacy;
+    const measuredTps = elapsedSeconds > 0
+        ? (successfulRequests / elapsedSeconds).toFixed(1)
+        : "unavailable";
+
+    client.log(`Concurrent requests: 100, elapsed: ${result.elapsedMs.toFixed(1)} ms`);
+    client.log(`New: ${result.newProvider}, legacy: ${result.legacy}, failed: ${result.failed}`);
+    client.log(`Measured routing TPS: ${measuredTps} successful previews/sec (average over this burst)`);
+    client.log(`Configured limit: ${limit} new-provider admissions per rolling second`);
+    client.log("Measured TPS includes both providers; a short burst does not measure sustained throughput.");
+
+    client.test("All concurrent routing previews succeeded", () => {
+        client.assert(result.failed === 0, `${result.failed} failed previews`);
+        client.assert(result.newProvider + result.legacy === 100, "Expected 100 routing results");
+    });
+
+    if (result.elapsedMs < 1000) {
+        client.test("Burst respected the TPS limit", () => {
+            client.assert(result.newProvider <= limit, "New-provider count exceeded the limit");
+        });
+    } else {
+        client.log("Burst exceeded one second; capacity may have recovered during the run.");
+    }
+%}

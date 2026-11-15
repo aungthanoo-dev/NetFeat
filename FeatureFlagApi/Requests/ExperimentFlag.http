@@ -1,0 +1,53 @@
+@baseUrl = http://localhost:5159
+
+### Inspect one assignment
+POST {{baseUrl}}/payments/experiment-preview
+Content-Type: application/json
+
+{"customerId":"customer-001","paymentMethodToken":"pm_demo_transient_failure"}
+
+### Compare 100 simulated payments (approximately 50/50 allocation)
+< {%
+    const tokens = ["pm_demo_success", "pm_demo_transient_failure", "pm_demo_decline"];
+    request.variables.set("cases", Array.from({length:100}, (_, i) => ({
+        id: `customer-${String(i+1).padStart(3,"0")}`, token: tokens[i%3]
+    })));
+%}
+POST {{baseUrl}}/payments/experiment-preview
+Content-Type: application/json
+
+{"customerId":"{{$.cases..id}}","paymentMethodToken":"{{$.cases..token}}"}
+
+> {%
+    const counts = request.iteration() === 0
+        ? {NoRetry:{count:0,success:0,attempts:0},RetryOnce:{count:0,success:0,attempts:0},invalid:0}
+        : JSON.parse(client.global.get("experimentCounts"));
+    const body = response.body;
+    const input = request.variables.get("cases")[request.iteration()];
+    const retry = body?.variant === "RetryOnce" && input.token === "pm_demo_transient_failure";
+    const expected = input.token === "pm_demo_success" || retry ? "succeeded" : "declined";
+    const valid = response.status === 200 && ["NoRetry","RetryOnce"].includes(body?.variant)
+        && body.customerId === input.id && body.experiment === "PaymentRetryExperiment"
+        && body.attempts === (retry ? 2 : 1) && body.status === expected;
+    if (valid) {
+        const group = counts[body.variant];
+        group.count++;
+        group.success += body.status === "succeeded" ? 1 : 0;
+        group.attempts += body.attempts;
+    } else counts.invalid++;
+    client.global.set("experimentCounts", JSON.stringify(counts));
+    client.test(`Customer ${input.id} has valid outcome`, () => client.assert(valid, "Invalid response"));
+    client.log(`${input.id}: ${body?.variant}, attempts: ${body?.attempts}, outcome: ${body?.status}`);
+    if (request.iteration() === 99) {
+        for (const name of ["NoRetry","RetryOnce"]) {
+            const g = counts[name];
+            const rate = g.count ? (100*g.success/g.count).toFixed(1)+"%" : "unavailable";
+            const average = g.count ? (g.attempts/g.count).toFixed(2) : "unavailable";
+            client.log(`${name}: customers=${g.count}, successes=${g.success}, success rate=${rate}, average attempts=${average}`);
+        }
+        const delta = counts.NoRetry.count && counts.RetryOnce.count
+            ? (100*(counts.RetryOnce.success/counts.RetryOnce.count-counts.NoRetry.success/counts.NoRetry.count)).toFixed(1) : "unavailable";
+        client.log(`Treatment minus control: ${delta} percentage points; invalid responses: ${counts.invalid}`);
+        client.log("Simulated results only; no statistical significance or production performance claim.");
+    }
+%}

@@ -1,0 +1,11 @@
+﻿@baseUrl = http://localhost:5159
+
+POST {{baseUrl}}/payments
+Content-Type: application/json
+
+{
+	"orderId": "order-101",
+	"amount": 2599,
+	"currency": "USD",
+	"paymentMethodToken": "pm_demo_success"
+}

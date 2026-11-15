@@ -1,0 +1,7 @@
+﻿services:
+  featureflagapi:
+    image: featureflagapi
+    build:
+      context: .
+      dockerfile: FeatureFlagApi/Dockerfile
+

@@ -1,0 +1,41 @@
+@baseUrl = http://localhost:5159
+@expectedProvider = legacy
+
+### Scheduled provider release
+# Run in Development. The initial 2030 window is in the future: expect legacy.
+# Edit ScheduledPaymentProviderRelease's Start/End using UTC timestamps:
+# Future: both later than now => legacy.
+# Active: Start earlier, End later than now => new.
+# Expired: both earlier than now => legacy.
+# Restart after editing, set expectedProvider above, and rerun this request.
+# Disabling the flag selects legacy regardless of the window.
+# Uses API server time. Rerun to observe changes; completed payments are unaffected.
+POST {{baseUrl}}/payments/time-window-release
+Content-Type: application/json
+
+{
+    "orderId": "scheduled-001",
+    "amount": 2599,
+    "currency": "USD",
+    "paymentMethodToken": "pm_demo_success"
+}
+
+> {%
+    const expected = client.variables.file.get("expectedProvider");
+    client.log(`Provider: ${response.body?.provider}, status: ${response.body?.status}`);
+    client.test("Scheduled payment uses expected provider", () => {
+        client.assert(response.status === 200, "Expected HTTP 200");
+        client.assert(response.body.provider === expected, `Expected ${expected}, got ${response.body.provider}`);
+        client.assert(response.body.status === "succeeded", "Expected succeeded payment");
+    });
+%}
+
+### Invalid payment is rejected
+POST {{baseUrl}}/payments/time-window-release
+Content-Type: application/json
+
+{"orderId":"invalid","amount":0,"currency":"USD","paymentMethodToken":"pm_demo_success"}
+
+> {%
+    client.test("Invalid payment returns 400", () => client.assert(response.status === 400, "Expected HTTP 400"));
+%}

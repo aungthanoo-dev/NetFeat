@@ -1,0 +1,57 @@
+﻿@baseUrl = http://localhost:5159
+@customerId = customer-001
+
+### Preview one customer's routing
+POST {{baseUrl}}/payments/routing-preview
+X-Demo-Customer-Id: {{customerId}}
+
+### Measure 50% targeting across 100 customers
+# Run the API in Development with NewPaymentProviderRouting's
+# DefaultRolloutPercentage set to 50 in appsettings.Development.json.
+# This previews routing; it does not charge customers.
+# Targeting is based on customer IDs, so the observed count may differ from 50.
+< {%
+    const customers = Array.from({ length: 100 }, (_, index) => ({
+        id: `customer-${String(index + 1).padStart(3, "0")}`
+    }));
+
+    request.variables.set("customers", customers);
+%}
+POST {{baseUrl}}/payments/routing-preview
+X-Demo-Customer-Id: {{$.customers..id}}
+
+> {%
+    // Initialize once per batch, even when the pre-request script runs per iteration.
+    const counts = request.iteration() === 0
+        ? { newProvider: 0, legacy: 0, failed: 0 }
+        : JSON.parse(client.global.get("paymentRoutingCounts"));
+    const provider = response.body?.provider;
+
+    if (response.status === 200 && provider === "new") {
+        counts.newProvider++;
+    } else if (response.status === 200 && provider === "legacy") {
+        counts.legacy++;
+    } else {
+        counts.failed++;
+    }
+
+    client.global.set("paymentRoutingCounts", JSON.stringify(counts));
+
+    // Rider displays client.log output in Services > Response Handler.
+    client.log(`Customer ${request.iteration() + 1}: HTTP ${response.status}, provider: ${provider}`);
+
+    const valid = counts.newProvider + counts.legacy;
+    if (valid + counts.failed === request.variables.get("customers").length) {
+        client.test("All routing previews succeeded", () => {
+            client.assert(counts.failed === 0, `${counts.failed} invalid responses`);
+        });
+
+        const observed = valid > 0
+            ? `${(100 * counts.newProvider / valid).toFixed(1)}%`
+            : "unavailable";
+
+        client.log(`New: ${counts.newProvider}, legacy: ${counts.legacy}, failed: ${counts.failed}`);
+        client.log("Configured target: 50% (expected approximately 50 of 100 customers)");
+        client.log(`Observed rollout: ${observed}`);
+    }
+%}
