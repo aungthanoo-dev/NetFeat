@@ -233,3 +233,80 @@ burst. This includes both providers and does not establish sustained capacity or
 measure real payment processing. If Node returns no output, check `node --version`
 in Rider's terminal and shell-command availability; non-JSON output is reported
 by the handler for diagnosis.
+
+## Combined filters
+
+**Purpose:** release the new provider only to customer-001, during 04:00–06:00 UTC
+ every day, with a 20% chance on each eligible evaluation.
+
+**Implementation:** [CombinedFilterReleaseEndpoints](Endpoints/CombinedFilterReleaseEndpoints.cs)
+handles POST /payments/combined-filter-release using the shared payment body and
+required X-Demo-Customer-Id header. It trims identity, evaluates the flag once per
+request with targeting context through the normal variant feature manager, and
+calls the selected simulated provider. Invalid identity or payment input returns 400.
+
+**Configuration:** CombinedPaymentProviderRelease uses requirement_type: All.
+Microsoft.Targeting restricts Audience.Users to customer-001, with no groups and
+zero default rollout. Microsoft.TimeWindow repeats daily with Interval 1 and NoEnd,
+anchored at 2026-01-01 04:00–06:00 UTC. Start is inclusive and end exclusive.
+Microsoft.Percentage has Value 20. Filters run in targeting/time/percentage order;
+an early rejection short-circuits. Disabled or missing flags select legacy.
+
+The date anchors recurrence, not a one-day restriction. The API server clock is
+used. All three conditions must pass; the default Any requirement would permit
+unintended access. The same customer can receive different providers on successive
+requests: PercentageFilter samples evaluations, unlike stable percentage targeting.
+
+**Example:** [CombinedFilters.http](Requests/CombinedFilters.http) includes a single
+eligible payment, 100 evaluations with unique order IDs for that same customer,
+an unlisted customer (always legacy), and missing identity (400). Batch counters
+reset at the first response. Counts, failures, and observed new-provider percentage
+are logged without requiring exactly 20 successes. Outside the window all use
+legacy; 20% applies only to eligible evaluations inside the window.
+
+For daytime testing, temporarily edit this flag's recurring Start/End to straddle
+current UTC time, restart, and rerun. Preserve a two-hour duration on one anchor
+date, using an earlier anchor date if the temporary window crosses midnight.
+Restore 04:00–06:00 UTC afterward. There is no clock override in the request.
+No real payments, persistent assignments, TPS limits, or quotas are involved.
+
+## Combined filters with OR logic
+
+**Purpose:** enable the new provider when any one of targeting, daily scheduling,
+or random sampling permits it. This complements the existing AND demonstration.
+
+**Implementation:** [AnyFilterReleaseEndpoints](Endpoints/AnyFilterReleaseEndpoints.cs)
+handles POST /payments/any-filter-release with the existing payment body and
+required X-Demo-Customer-Id header. It trims identity and evaluates the flag once
+per request with targeting context through the normal variant feature manager.
+It calls the selected simulated provider and returns the existing payment response.
+Invalid payment or missing/blank customer identity returns 400.
+
+**Configuration:** AnyFilterPaymentProviderRelease uses requirement_type: Any.
+Filters run in targeting/time/percentage order, stopping at the first passing
+filter. Audience.Users contains customer-001, groups are empty, and default
+rollout is zero. The window recurs daily, interval 1, NoEnd, anchored at
+2026-01-01T04:00:00Z through 2026-01-01T06:00:00Z. Start is inclusive and end
+exclusive; scheduling uses the API server's UTC clock. Percentage Value is 20.
+The same customer may receive different providers on repeated random evaluations.
+A disabled or missing flag selects legacy for everyone.
+
+| Customer and time (flag enabled) | AND example | OR example |
+|---|---|---|
+| Allowlisted, inside window | Approximately 20% new | Always new |
+| Allowlisted, outside window | Always legacy | Always new |
+| Unlisted, inside window | Always legacy | Always new |
+| Unlisted, outside window | Always legacy | Approximately 20% new |
+
+**Example:** [AnyFilters.http](Requests/AnyFilters.http) asserts new for
+customer-001, inspects customer-002, and runs 100 evaluations for customer-002
+with unique order IDs and separate counters reset per batch. It reports counts,
+failures, and observed new-provider percentage without exact random-count assertions.
+It also checks a missing header. Assertions assume the enabled sample configuration;
+when disabling the flag, expect legacy even for customer-001.
+
+For daytime testing, temporarily move this flag's recurring Start/End to straddle
+current UTC time, restart, and rerun. Use one anchor date and preserve the two-hour
+duration; use an earlier anchor date if the temporary window crosses midnight.
+Restore 04:00–06:00 UTC afterward. There is no request-controlled clock override,
+persistent assignment, or real payment charge. The AND sample remains independent.

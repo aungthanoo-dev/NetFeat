@@ -27,6 +27,8 @@ The solution targets .NET 11. Start with the [project setup instructions](Featur
 | Batch quota | How do we guarantee an exact allocation within a batch? | [Quota routing](FeatureFlagApi/README.md#quota-based-routing) | [QuotaRouting.http](FeatureFlagApi/Requests/QuotaRouting.http) |
 | TPS routing | How do we route overflow when provider capacity is exhausted? | [TPS routing](FeatureFlagApi/README.md#tps-based-routing) | [TpsRouting.http](FeatureFlagApi/Requests/TpsRouting.http) |
 | Concurrent TPS burst | How does the TPS limit behave under concurrent traffic? | [Concurrent burst](FeatureFlagApi/README.md#concurrent-tps-burst) | [TpsRoutingConcurrent.http](FeatureFlagApi/Requests/TpsRoutingConcurrent.http) |
+| Combined filters | How do customer targeting, daily scheduling, and random sampling work together? | [Combined filters](FeatureFlagApi/README.md#combined-filters) | [CombinedFilters.http](FeatureFlagApi/Requests/CombinedFilters.http) |
+| Combined filters (OR) | How can any one filter enable a release? | [OR filters](FeatureFlagApi/README.md#combined-filters-with-or-logic) | [AnyFilters.http](FeatureFlagApi/Requests/AnyFilters.http) |
 
 ## Documentation structure
 
@@ -35,3 +37,6 @@ available demonstrations. Each project README owns the purpose, implementation,
 configuration, and practical examples for that project's features. New projects
 should add a project guide and an entry here; new demonstrations should add a
 catalog row and details in the relevant project guide.
+
+
+

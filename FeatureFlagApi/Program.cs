@@ -30,8 +30,12 @@ app.MapTpsRoutingEndpoints();
 app.MapRefundEndpoints();
 app.MapExperimentEndpoints();
 app.MapCustomerSpecificReleaseEndpoints();
+app.MapCombinedFilterReleaseEndpoints();
+app.MapAnyFilterReleaseEndpoints();
 
 app.Run();
+
+
 
 
 
