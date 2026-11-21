@@ -1,11 +1,41 @@
 @RateLimitApi_HostAddress = http://localhost:5295
+@merchant = merchant-a
+@payoutId = 00000000-0000-0000-0000-000000000000
 
+### Submit a payout. Copy payoutId from the 202 response above into @payoutId.
+POST {{RateLimitApi_HostAddress}}/payouts
+X-Demo-Merchant-Id: {{merchant}}
+Content-Type: application/json
+
+{
+  "amountInCents": 2599,
+  "currency": "USD"
+}
+
+### Check payout status as its owner. Repeat quickly to exercise the polling limit.
+GET {{RateLimitApi_HostAddress}}/payouts/{{payoutId}}
+X-Demo-Merchant-Id: {{merchant}}
+Accept: application/json
+
+### Submit with another merchant. This uses a separate token bucket.
+POST {{RateLimitApi_HostAddress}}/payouts
+X-Demo-Merchant-Id: merchant-b
+Content-Type: application/json
+
+{
+  "amountInCents": 1500,
+  "currency": "USD"
+}
+
+### Export reconciliation CSV. Send simultaneous requests to exercise the two shared slots.
+GET {{RateLimitApi_HostAddress}}/reconciliation/export
+X-Demo-Merchant-Id: {{merchant}}
+Accept: text/csv
+
+### A missing merchant header returns 400.
+GET {{RateLimitApi_HostAddress}}/payouts/{{payoutId}}
+Accept: application/json
+
+### OpenAPI document (Development).
 GET {{RateLimitApi_HostAddress}}/openapi/v1.json
 Accept: application/json
-
-###
-
-GET {{RateLimitApi_HostAddress}}/weatherforecast/
-Accept: application/json
-
-###

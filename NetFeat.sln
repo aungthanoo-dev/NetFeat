@@ -18,17 +18,24 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{0AB3BF05
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FeatureFlagApi.IntegrationTests", "FeatureFlagApi.IntegrationTests\FeatureFlagApi.IntegrationTests.csproj", "{A6E04446-B135-41A3-A7C3-4414CFF28D57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RateLimitApi.IntegrationTests", "RateLimitApi.IntegrationTests\RateLimitApi.IntegrationTests.csproj", "{1CA20853-0334-4C31-88C3-C82DDCEC53CE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
+		{1CA20853-0334-4C31-88C3-C82DDCEC53CE} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 		{4E34342E-409F-4A05-8E90-6082C647AA28} = {48BE30B4-FBA2-43C4-A4B7-88E629D81B80}
 		{AF3534C7-0E19-4275-BB35-65286E87057C} = {48BE30B4-FBA2-43C4-A4B7-88E629D81B80}
 		{A6E04446-B135-41A3-A7C3-4414CFF28D57} = {0AB3BF05-4346-4AA6-1389-037BE0695223}
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1CA20853-0334-4C31-88C3-C82DDCEC53CE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1CA20853-0334-4C31-88C3-C82DDCEC53CE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1CA20853-0334-4C31-88C3-C82DDCEC53CE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1CA20853-0334-4C31-88C3-C82DDCEC53CE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{4E34342E-409F-4A05-8E90-6082C647AA28}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{4E34342E-409F-4A05-8E90-6082C647AA28}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{4E34342E-409F-4A05-8E90-6082C647AA28}.Release|Any CPU.ActiveCfg = Release|Any CPU
