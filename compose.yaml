@@ -5,3 +5,9 @@
       context: .
       dockerfile: FeatureFlagApi/Dockerfile
 
+  ratelimitapi:
+    image: ratelimitapi
+    build:
+      context: .
+      dockerfile: RateLimitApi/Dockerfile
+

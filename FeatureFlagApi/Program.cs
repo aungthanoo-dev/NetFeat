@@ -35,7 +35,4 @@ app.MapAnyFilterReleaseEndpoints();
 
 app.Run();
 
-
-
-
-
+public partial class Program { }
